@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Application Intake Portal</title>
+    <!-- Load the official Supabase library to bundle API parameters cleanly -->
+    <script src="https://unpkg.com"></script>
+    <style>
+        body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f4f4f9; margin: 0; padding: 20px 0; }
+        form { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 350px; display: flex; flex-direction: column; }
+        h3 { margin-top: 0; color: #333; text-align: center; margin-bottom: 20px; }
+        label { font-size: 13px; color: #333; margin-bottom: 5px; font-weight: bold; display: block; }
+        input { margin-bottom: 15px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: calc(100% - 22px); }
+        .file-box { margin-bottom: 15px; padding: 5px 0; }
+        button { background: #24292e; color: white; border: none; padding: 12px; cursor: pointer; font-weight: bold; border-radius: 4px; margin-top: 10px; }
+        button:hover { background: #333; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <form id="leadForm">
+        <h3>Student Intake Portal</h3>
+        
+        <input type="text" id="firstName" placeholder="First Name" required>
+        <input type="text" id="fatherName" placeholder="Father's Name" required>
+        <input type="text" id="lastName" placeholder="Last Name" required>
+        
+        <label for="dob">Date of Birth:</label>
+        <input type="date" id="dob" required>
+        
+        <input type="text" id="pob" placeholder="Place of Birth" required>
+        <input type="text" id="nationality" placeholder="Nationality" required>
+        <input type="email" id="useremail" placeholder="Your Email Address" required>
+        <input type="tel" id="mobile" placeholder="Mobile Number" required>
+        <input type="text" id="address" placeholder="Current Residential Address" required>
+        <input type="text" id="major" placeholder="Applying Major" required>
+        
+        <label for="userfiles">Choose Files to Attach:</label>
+        <input type="file" id="userfiles" class="file-box" accept=".pdf, .jpg, .jpeg, .png" multiple required>
+        
+        <button type="submit" id="submitBtn">Submit Application</button>
+    </form>
+
+    <script>
+        // === PASTE YOUR CREDENTIALS BELOW ===
+        const SUPABASE_URL = "https://supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_0DWJebA2Vn3HIyGf7iSxgg_uZAfbfTR";
+        // ===================================
+
+        // Initialize the secure official SDK architecture client
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        document.getElementById('leadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const btn = document.getElementById('submitBtn');
+            btn.innerText = "Processing...";
+            btn.disabled = true;
+
+            const firstName = document.getElementById('firstName').value;
+            const fatherName = document.getElementById('fatherName').value;
+            const lastName = document.getElementById('lastName').value;
+            const dob = document.getElementById('dob').value;
+            const pob = document.getElementById('pob').value;
+            const nationality = document.getElementById('nationality').value;
+            const email = document.getElementById('useremail').value;
+            const mobile = document.getElementById('mobile').value;
+            const address = document.getElementById('address').value;
+            const major = document.getElementById('major').value;
+            
+            const fileInput = document.getElementById('userfiles');
+            const filesList = fileInput.files;
+
+            const folderName = email.toLowerCase().replace(/[^a-z0-9]/g, "_");
+            
+            alert("Step 1: Commencing multi-file attachment transfers into storage bucket folder path: " + folderName);
+
+            try {
+                const publicUrls = [];
+
+                // 1. Upload files securely via the SDK into email subfolders
+                for (let i = 0; i < filesList.length; i++) {
+                    const file = filesList[i];
+                    const safeFileName = file.name.replace(/[^a-zA-Z0-9.]/g, "_");
+                    const uniqueFileName = Date.now() + "_" + safeFileName;
+
+                    const { error: storageError } = await supabaseClient
+                        .storage
+                        .from('user_files')
+                        .upload(folderName + "/" + uniqueFileName, file, {
+                            cacheControl: '3600',
+                            upsert: true
+                        });
+
+                    if (storageError) throw new Error("Storage Core Mismatch: " + storageError.message);
+
+                    const { data: urlData } = supabaseClient
+                        .storage
+                        .from('user_files')
+                        .getPublicUrl(folderName + "/" + uniqueFileName);
+
+                    publicUrls.push(urlData.publicUrl);
+                }
+
+                alert("Step 2: Attachments successfully saved! Syncing application text columns to table metrics...");
+
+                // 2. Insert records using explicit fields matching your SQL schema definitions line-by-line
+                const { error: tableError } = await supabaseClient
+                    .from('student_applications')
+                    .insert([
+                        { 
+                            first_name: firstName,
+                            father_name: fatherName,
+                            last_name: lastName,
+                            dob: dob,
+                            pob: pob,
+                            nationality: nationality,
+                            email: email,
+                            mobile: mobile,
+                            address: address,
+                            major: major,
+                            file_url: publicUrls.join(" | ")
+                        }
+                    ]);
+
+                if (tableError) throw new Error("Database Table Mismatch: " + tableError.message);
+
+                alert("🎉 SUCCESS! Your full student profile details and files have been completely saved!");
+                document.getElementById('leadForm').reset();
+
+            } catch (err) {
+                alert("❌ Action Aborted: " + err.message);
+            } finally {
+                btn.innerText = "Submit Application";
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
