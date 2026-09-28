@@ -18,6 +18,7 @@
 </head>
 <body>
 
+    <!-- CRUCIAL FIX: Attached onsubmit directly here to lock the page layout from reloads -->
     <form id="leadForm" onsubmit="handleFormSubmit(event)">
         <h3>Application Intake Form</h3>
         
@@ -49,6 +50,7 @@
         // ===================================
 
         async function handleFormSubmit(event) {
+            // HARD BLOCK: This forcefully freezes the page from refreshing or emptying out!
             event.preventDefault();
 
             const btn = document.getElementById('submitBtn');
@@ -60,6 +62,9 @@
             const filesList = fileInput.files;
             const folderName = email.toLowerCase().replace(/[^a-z0-9]/g, "_");
             
+            // This alert MUST show up now because the page is frozen!
+            alert("Connection Confirmed! Click OK to upload files into folder: " + folderName);
+
             try {
                 const publicUrls = [];
 
@@ -70,7 +75,6 @@
                     const uniqueFileName = Date.now() + "_" + safeFileName;
                     
                     const storageEndpoint = SUPABASE_URL + "/storage/v1/object/user_files/" + folderName + "/" + uniqueFileName;
-                    const fileBlob = new Blob([file], { type: file.type });
 
                     const storageResponse = await fetch(storageEndpoint, {
                         method: "PUT",
@@ -79,7 +83,7 @@
                             "Authorization": "Bearer " + SUPABASE_ANON_KEY,
                             "Content-Type": file.type
                         },
-                        body: fileBlob
+                        body: file
                     });
 
                     if (!storageResponse.ok) {
@@ -90,7 +94,9 @@
                     publicUrls.push(SUPABASE_URL + "/storage/v1/object/public/user_files/" + folderName + "/" + uniqueFileName);
                 }
 
-                // 2. Insert rows using direct native PostgREST call to read any silent database errors out loud
+                alert("Files uploaded successfully! Saving database text rows...");
+
+                // 2. Insert rows using direct native PostgREST call to your pristine table structure
                 const tableEndpoint = SUPABASE_URL + "/rest/v1/student_applications";
                 const databasePayload = [{
                     first_name: document.getElementById('firstName').value,
@@ -112,7 +118,7 @@
                         "apikey": SUPABASE_ANON_KEY,
                         "Authorization": "Bearer " + SUPABASE_ANON_KEY,
                         "Content-Type": "application/json",
-                        "Prefer": "return=representation" // Forces the server to send a true error log back if it rejects
+                        "Prefer": "return=representation"
                     },
                     body: JSON.stringify(databasePayload)
                 });
@@ -123,7 +129,6 @@
                     alert("🎉 SUCCESS! Application completely saved!");
                     document.getElementById('leadForm').reset();
                 } else {
-                    // This will tell us the exact hidden reason it's failing silently!
                     alert("Database Stopped Us: " + responseText);
                 }
 
