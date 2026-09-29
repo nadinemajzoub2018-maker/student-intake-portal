@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Application Intake Form</title>
+    <!-- Load the official Supabase bundle globally to bypass network trackers -->
+    <script src="https://unpkg.com"></script>
     <style>
         body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f4f4f9; margin: 0; padding: 20px 0; }
         .form-container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 350px; display: flex; flex-direction: column; }
@@ -43,9 +45,12 @@
 
     <script>
         // === PASTE YOUR CREDENTIALS BELOW ===
-        const SUPABASE_URL = "https://brldoaeffbajoitxohej.supabase.co";
+        const SUPABASE_URL = "https://supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_0DWJebA2Vn3HIyGf7iSxgg_uZAfbfTR";
         // ===================================
+
+        // Initialize utilizing the official library framework
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         async function startApplicationTransmission() {
             const btn = document.getElementById('submitBtn');
@@ -74,91 +79,75 @@
 
             const folderName = email.toLowerCase().replace(/[^a-z0-9]/g, "_");
             
-            alert("Upload Status: Initializing connection channels...");
+            alert("Upload Status: Initializing official SDK pipeline...");
 
             try {
                 const publicUrls = [];
 
-                // 1. Upload files securely via native PUT streams into your storage subfolders
+                // 1. Upload files securely via official storage upload helper
                 for (let i = 0; i < filesList.length; i++) {
                     const file = filesList[i];
                     const safeFileName = file.name.replace(/[^a-zA-Z0-9.]/g, "_");
                     const uniqueFileName = Date.now() + "_" + safeFileName;
-                    
-                    const storageEndpoint = SUPABASE_URL + "/storage/v1/object/user_files/" + folderName + "/" + uniqueFileName;
 
-                    const storageResponse = await fetch(storageEndpoint, {
-                        method: "PUT",
-                        headers: {
-                            "apikey": SUPABASE_ANON_KEY,
-                            "Authorization": "Bearer " + SUPABASE_ANON_KEY,
-                            "Content-Type": file.type
-                        },
-                        body: file
-                    });
+                    const { error: storageError } = await supabaseClient
+                        .storage
+                        .from('user_files')
+                        .upload(folderName + "/" + uniqueFileName, file, {
+                            cacheControl: '3600',
+                            upsert: true
+                        });
 
-                    if (!storageResponse.ok) {
-                        const errText = await storageResponse.text();
-                        throw new Error("File Transfer Blocked: " + errText);
-                    }
+                    if (storageError) throw new Error("Storage Upload Error: " + storageError.message);
 
-                    publicUrls.push(SUPABASE_URL + "/storage/v1/object/public/user_files/" + folderName + "/" + uniqueFileName);
+                    const { data: urlData } = supabaseClient
+                        .storage
+                        .from('user_files')
+                        .getPublicUrl(folderName + "/" + uniqueFileName);
+
+                    publicUrls.push(urlData.publicUrl);
                 }
 
-                alert("Files saved into folders! Syncing fields directly to database row...");
+                alert("Files saved into folders! Syncing text fields to database row via official client channel...");
 
-                // 2. Insert records matching your SQL column structure perfectly with fixed schema targets
-                const tableEndpoint = SUPABASE_URL + "/rest/v1/student_applications";
-                const databasePayload = [{
-                    first_name: firstName,
-                    father_name: fatherName,
-                    last_name: lastName,
-                    dob: dob,
-                    pob: pob,
-                    nationality: nationality,
-                    email: email,
-                    mobile: mobile,
-                    address: address,
-                    major: major,
-                    file_url: publicUrls.join(" | ")
-                }];
+                // 2. Insert records using the secure official database insertion layer
+                const { error: tableError } = await supabaseClient
+                    .from('student_applications')
+                    .insert([
+                        { 
+                            first_name: firstName,
+                            father_name: fatherName,
+                            last_name: lastName,
+                            dob: dob,
+                            pob: pob,
+                            nationality: nationality,
+                            email: email,
+                            mobile: mobile,
+                            address: address,
+                            major: major,
+                            file_url: publicUrls.join(" | ")
+                        }
+                    ]);
 
-                const tableResponse = await fetch(tableEndpoint, {
-                    method: "POST",
-                    headers: {
-                        "apikey": SUPABASE_ANON_KEY,
-                        "Authorization": "Bearer " + SUPABASE_ANON_KEY,
-                        "Content-Type": "application/json",
-                        "Prefer": "return=minimal",
-                        // CRUCIAL ROUTING FIX: Forces both parsing routers to treat requests directly inside the public schema layers
-                        "Content-Profile": "public",
-                        "Accept-Profile": "public"
-                    },
-                    body: JSON.stringify(databasePayload)
-                });
+                if (tableError) throw new Error("Database Table Error: " + tableError.message);
 
-                if (tableResponse.ok) {
-                    alert("🎉 SUCCESS! Your full student profile details and files have been completely saved!");
-                    
-                    // Clear inputs manually
-                    document.getElementById('firstName').value = "";
-                    document.getElementById('fatherName').value = "";
-                    document.getElementById('lastName').value = "";
-                    document.getElementById('dob').value = "";
-                    document.getElementById('pob').value = "";
-                    document.getElementById('nationality').value = "";
-                    document.getElementById('useremail').value = "";
-                    document.getElementById('mobile').value = "";
-                    document.getElementById('address').value = "";
-                    document.getElementById('major').value = "";
-                    document.getElementById('userfiles').value = "";
-                } else {
-                    const responseText = await tableResponse.text();
-                    alert("Database parameter registration issue: " + responseText);
-                }
+                alert("🎉 SUCCESS! Your full student profile details and files have been completely saved!");
+                
+                // Clear fields manually
+                document.getElementById('firstName').value = "";
+                document.getElementById('fatherName').value = "";
+                document.getElementById('lastName').value = "";
+                document.getElementById('dob').value = "";
+                document.getElementById('pob').value = "";
+                document.getElementById('nationality').value = "";
+                document.getElementById('useremail').value = "";
+                document.getElementById('mobile').value = "";
+                document.getElementById('address').value = "";
+                document.getElementById('major').value = "";
+                document.getElementById('userfiles').value = "";
 
             } catch (err) {
-                alert("Submission Status Error: " + err.message);
+                alert("Stopped: " + err.message);
             } finally {
                 btn.innerText = "Submit Application";
                 btn.disabled = false;
@@ -167,3 +156,4 @@
     </script>
 </body>
 </html>
+
