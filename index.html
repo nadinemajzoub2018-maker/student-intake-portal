@@ -74,7 +74,7 @@
 
             const folderName = email.toLowerCase().replace(/[^a-z0-9]/g, "_");
             
-            alert("Upload Status: Initializing connection routing loops...");
+            alert("Upload Status: Initializing connections...");
 
             try {
                 const publicUrls = [];
@@ -105,9 +105,9 @@
                     publicUrls.push(SUPABASE_URL + "/storage/v1/object/public/user_files/" + folderName + "/" + uniqueFileName);
                 }
 
-                alert("Files saved into folders! Syncing fields to your dashboard public table grid...");
+                alert("Files saved into folders! Syncing fields directly to database row...");
 
-                // 2. Insert records using explicit endpoint strings matching your exact SQL column structure
+                // 2. Insert records using direct native API calls matching your SQL structure perfectly
                 const tableEndpoint = SUPABASE_URL + "/rest/v1/student_applications";
                 const databasePayload = [{
                     first_name: firstName,
@@ -129,9 +129,7 @@
                         "apikey": SUPABASE_ANON_KEY,
                         "Authorization": "Bearer " + SUPABASE_ANON_KEY,
                         "Content-Type": "application/json",
-                        "Prefer": "return=minimal",
-                        // FORCE ROUTING HEADER: Tells the system to look directly into the public schema table view
-                        "Content-Profile": "public"
+                        "Prefer": "return=minimal"
                     },
                     body: JSON.stringify(databasePayload)
                 });
